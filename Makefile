@@ -1,6 +1,6 @@
 # Basic Makefile
 
-UUID = dash-to-dock@micxgx.gmail.com
+UUID = albert-macos-dock@local
 BASE_MODULES = extension.js \
                metadata.json \
                COPYING \
@@ -45,7 +45,7 @@ else
 	SHARE_PREFIX = $(DESTDIR)/usr/share
 	INSTALLBASE = $(SHARE_PREFIX)/gnome-shell/extensions
 endif
-INSTALLNAME = dash-to-dock@micxgx.gmail.com
+INSTALLNAME = albert-macos-dock@local
 
 # The command line passed variable VERSION is used to set the version string
 # in the metadata and in the generated zip-file. If no VERSION is passed, the
@@ -67,7 +67,7 @@ clean:
 
 extension: ./schemas/gschemas.compiled ./stylesheet.css $(MSGSRC:.po=.mo)
 
-./schemas/gschemas.compiled: ./schemas/org.gnome.shell.extensions.dash-to-dock.gschema.xml
+./schemas/gschemas.compiled: ./schemas/org.gnome.shell.extensions.albert-macos-dock.gschema.xml
 	glib-compile-schemas ./schemas/
 
 potfile: ./po/dashtodock.pot
@@ -91,7 +91,7 @@ else ifeq ($(SASS), dart)
 else ifeq ($(SASS), sassc)
 	sassc --omit-map-comment _stylesheet.scss stylesheet.css
 else
-	sassc --omit-map-comment _stylesheet.scss stylesheet.css
+	npx --yes sass _stylesheet.scss stylesheet.css
 endif
 
 install: install-local
