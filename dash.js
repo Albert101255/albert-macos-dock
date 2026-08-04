@@ -24,6 +24,7 @@ import {
 import {
     AppIcons,
     Docking,
+    Magnifier,
     Theming,
     Utils,
 } from './imports.js';
@@ -255,6 +256,7 @@ export const DockDash = GObject.registerClass({
         this._appSystem = Shell.AppSystem.get_default();
 
         this.iconAnimator = new Docking.IconAnimator(this);
+        this.magnifier = new Magnifier.DockMagnifier(this);
 
         this._signalsHandler.add([
             this._appSystem,
@@ -321,6 +323,8 @@ export const DockDash = GObject.registerClass({
     }
 
     _onDestroy() {
+        this.magnifier?.destroy();
+        delete this.magnifier;
         this.iconAnimator.destroy();
 
         if (this._requiresVisibilityTimeout) {
