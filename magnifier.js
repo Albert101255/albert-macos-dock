@@ -156,12 +156,40 @@ export const DockMagnifier = GObject.registerClass({
         }
 
         if (this._records.size > 0) {
-            const tolerance = 2;
+            const maxScale = this._settings.magnificationMaxScale ?? 1.65;
+            const pos = Utils.getPosition();
+            const sampleHeight = Array.from(this._records.values())[0].baseItemStageRect.height;
+            const overflowMargin = Math.ceil((maxScale - 1.0) * sampleHeight + 32);
+            const primaryPadding = 32;
+
+            let rectX1 = minX;
+            let rectY1 = minY;
+            let rectX2 = maxX;
+            let rectY2 = maxY;
+
+            if (pos === St.Side.BOTTOM) {
+                rectY1 -= overflowMargin;
+            } else if (pos === St.Side.TOP) {
+                rectY2 += overflowMargin;
+            } else if (pos === St.Side.RIGHT) {
+                rectX1 -= overflowMargin;
+            } else if (pos === St.Side.LEFT) {
+                rectX2 += overflowMargin;
+            }
+
+            if (this._dockDash._isHorizontal) {
+                rectX1 -= primaryPadding;
+                rectX2 += primaryPadding;
+            } else {
+                rectY1 -= primaryPadding;
+                rectY2 += primaryPadding;
+            }
+
             this._dockRect = {
-                x1: minX - tolerance,
-                y1: minY - tolerance,
-                x2: maxX + tolerance,
-                y2: maxY + tolerance,
+                x1: rectX1,
+                y1: rectY1,
+                x2: rectX2,
+                y2: rectY2,
             };
         } else {
             this._dockRect = null;
@@ -175,8 +203,8 @@ export const DockMagnifier = GObject.registerClass({
         if (!this._settings.magnificationEnabled)
             return Clutter.EVENT_PROPAGATE;
 
-        console.log('[Albert macOS Dock] Pointer entered dock');
         if (this._state === State.IDLE) {
+            console.log('[Albert macOS Dock] Pointer entered dock');
             this._captureBaselineGeometry();
             if (this._records.size > 0) {
                 this._state = State.ACTIVE;
@@ -188,8 +216,16 @@ export const DockMagnifier = GObject.registerClass({
     }
 
     _onLeaveEvent(actor, event) {
-        if (this._state === State.DESTROYED)
+        if (this._state !== State.ACTIVE)
             return Clutter.EVENT_PROPAGATE;
+
+        const [px, py] = global.get_pointer();
+        if (this._dockRect) {
+            if (px >= this._dockRect.x1 && px <= this._dockRect.x2 &&
+                py >= this._dockRect.y1 && py <= this._dockRect.y2) {
+                return Clutter.EVENT_PROPAGATE;
+            }
+        }
 
         console.log('[Albert macOS Dock] Pointer left dock');
         this._resetToBaseline('pointer-leave');
@@ -265,13 +301,15 @@ export const DockMagnifier = GObject.registerClass({
             const radius = radiusFactor * baseIconSize;
             const distance = Math.abs(pointerPrimary - centerPrimary);
 
-            if (distance < radius) {
+            if (distance < radius && radius > 0) {
                 const normalized = Math.min(Math.max(distance / radius, 0), 1);
                 const influence = 0.5 * (1 + Math.cos(Math.PI * normalized));
                 record.targetScale = 1 + influence * (maxScale - 1);
             } else {
                 record.targetScale = 1.0;
             }
+            if (Number.isNaN(record.targetScale) || !Number.isFinite(record.targetScale))
+                record.targetScale = 1.0;
             record.targetScale = Math.min(Math.max(record.targetScale, 1.0), maxScale);
         }
 
@@ -291,7 +329,6 @@ export const DockMagnifier = GObject.registerClass({
                 cum[i] = cum[i - 1] + 0.5 * extraSize[i - 1] + 0.5 * extraSize[i];
             }
 
-            // Find anchor position at exact pointer location
             let anchor = 0.0;
             const centers = recordsList.map(r => isHorizontal ? r.baseItemStageRect.centerX : r.baseItemStageRect.centerY);
             if (pointerPrimary <= centers[0]) {
@@ -311,6 +348,8 @@ export const DockMagnifier = GObject.registerClass({
 
             for (let i = 0; i < n; i++) {
                 recordsList[i].targetDisplacement = cum[i] - anchor;
+                if (Number.isNaN(recordsList[i].targetDisplacement) || !Number.isFinite(recordsList[i].targetDisplacement))
+                    recordsList[i].targetDisplacement = 0.0;
             }
         } else {
             for (const record of recordsList) {
@@ -327,12 +366,16 @@ export const DockMagnifier = GObject.registerClass({
             if (Math.abs(record.targetScale - record.currentScale) < 0.001) {
                 record.currentScale = record.targetScale;
             }
+            if (Number.isNaN(record.currentScale) || !Number.isFinite(record.currentScale))
+                record.currentScale = 1.0;
 
             // Displacement smoothing
             record.currentDisplacement += (record.targetDisplacement - record.currentDisplacement) * smoothing;
             if (Math.abs(record.targetDisplacement - record.currentDisplacement) < 0.01) {
                 record.currentDisplacement = record.targetDisplacement;
             }
+            if (Number.isNaN(record.currentDisplacement) || !Number.isFinite(record.currentDisplacement))
+                record.currentDisplacement = 0.0;
 
             // Apply to visual actor (scaling)
             const visual = record.visualActor;
