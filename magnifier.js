@@ -399,24 +399,25 @@ export const DockMagnifier = GObject.registerClass({
         this._stopFrameLoop();
         this._state = State.SUSPENDED;
 
-        for (const record of this._records.values()) {
-            const { layoutActor, visualActor, originalLayoutTransform, originalVisualTransform } = record;
+        const [pivotX, pivotY] = this._getPivotForOrientation();
 
-            if (layoutActor) {
-                layoutActor.set_pivot_point(originalLayoutTransform.pivotX, originalLayoutTransform.pivotY);
-                layoutActor.set_scale(originalLayoutTransform.scaleX, originalLayoutTransform.scaleY);
-                layoutActor.translation_x = originalLayoutTransform.translationX;
-                layoutActor.translation_y = originalLayoutTransform.translationY;
-                layoutActor.opacity = originalLayoutTransform.opacity;
-            }
+        for (const record of this._records.values()) {
+            const { layoutActor, visualActor, originalLayoutTransform } = record;
 
             if (visualActor) {
-                visualActor.set_pivot_point(originalVisualTransform.pivotX, originalVisualTransform.pivotY);
-                visualActor.set_scale(originalVisualTransform.scaleX, originalVisualTransform.scaleY);
-                visualActor.translation_x = originalVisualTransform.translationX;
-                visualActor.translation_y = originalVisualTransform.translationY;
-                visualActor.opacity = originalVisualTransform.opacity;
+                visualActor.set_pivot_point(pivotX, pivotY);
+                visualActor.set_scale(1.0, 1.0);
             }
+
+            if (layoutActor) {
+                layoutActor.translation_x = originalLayoutTransform.translationX;
+                layoutActor.translation_y = originalLayoutTransform.translationY;
+            }
+
+            record.currentScale = 1.0;
+            record.targetScale = 1.0;
+            record.currentDisplacement = 0.0;
+            record.targetDisplacement = 0.0;
         }
 
         this._verifyBaseline();
@@ -426,8 +427,9 @@ export const DockMagnifier = GObject.registerClass({
     }
 
     _verifyBaseline() {
+        const [pivotX, pivotY] = this._getPivotForOrientation();
         for (const record of this._records.values()) {
-            const { layoutActor, visualActor, originalLayoutTransform, originalVisualTransform } = record;
+            const { layoutActor, visualActor, originalLayoutTransform } = record;
             if (layoutActor && (
                 layoutActor.translation_x !== originalLayoutTransform.translationX ||
                 layoutActor.translation_y !== originalLayoutTransform.translationY
@@ -435,11 +437,9 @@ export const DockMagnifier = GObject.registerClass({
                 layoutActor.translation_x = originalLayoutTransform.translationX;
                 layoutActor.translation_y = originalLayoutTransform.translationY;
             }
-            if (visualActor && (
-                visualActor.scale_x !== originalVisualTransform.scaleX ||
-                visualActor.scale_y !== originalVisualTransform.scaleY
-            )) {
-                visualActor.set_scale(originalVisualTransform.scaleX, originalVisualTransform.scaleY);
+            if (visualActor) {
+                visualActor.set_pivot_point(pivotX, pivotY);
+                visualActor.set_scale(1.0, 1.0);
             }
         }
         return true;
