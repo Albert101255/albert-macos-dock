@@ -51,6 +51,31 @@
     <value value='9' nick='DOT'/>
   </enum>
   <schema path="/org/gnome/shell/extensions/albert-macos-dock/" id="org.gnome.shell.extensions.albert-macos-dock">
+    <key type="b" name="magnification-enabled">
+      <default>true</default>
+      <summary>Enable magnification</summary>
+      <description>Enable macOS-style icon magnification on hover.</description>
+    </key>
+    <key type="d" name="magnification-max-scale">
+      <default>1.65</default>
+      <summary>Maximum magnification scale</summary>
+      <description>Maximum scale factor for icon magnification (1.10 to 2.00).</description>
+    </key>
+    <key type="d" name="magnification-radius">
+      <default>2.5</default>
+      <summary>Magnification effect radius</summary>
+      <description>Radius of the magnification wave in icon units (1.0 to 4.0).</description>
+    </key>
+    <key type="b" name="magnification-displacement">
+      <default>true</default>
+      <summary>Displace neighbouring icons</summary>
+      <description>Move neighbouring icons smoothly during magnification.</description>
+    </key>
+    <key type="d" name="magnification-smoothing">
+      <default>0.35</default>
+      <summary>Magnification smoothing factor</summary>
+      <description>Frame-based smoothing factor for magnification transitions (0.10 to 1.00).</description>
+    </key>
     <key name="dock-position" enum="org.gnome.shell.extensions.albert-macos-dock.position">
       <default>'BOTTOM'</default>
       <summary>Dock position</summary>

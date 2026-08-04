@@ -632,6 +632,28 @@ const DockSettings = GObject.registerClass({
             'sensitive',
             Gio.SettingsBindFlags.INVERT_BOOLEAN);
 
+        // Magnification settings
+        this._settings.bind('magnification-enabled',
+            this._builder.get_object('magnification_enabled_switch'),
+            'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind('magnification-max-scale',
+            this._builder.get_object('magnification_max_scale_adjustment'),
+            'value',
+            Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind('magnification-radius',
+            this._builder.get_object('magnification_radius_adjustment'),
+            'value',
+            Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind('magnification-displacement',
+            this._builder.get_object('magnification_displacement_switch'),
+            'active',
+            Gio.SettingsBindFlags.DEFAULT);
+        this._settings.bind('magnification-smoothing',
+            this._builder.get_object('magnification_smoothing_adjustment'),
+            'value',
+            Gio.SettingsBindFlags.DEFAULT);
+
 
         // Apps panel
 

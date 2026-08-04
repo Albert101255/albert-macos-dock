@@ -6,6 +6,27 @@
     <property name="step-increment">0.050000000000000003</property>
     <property name="page-increment">0.25</property>
   </object>
+  <object class="GtkAdjustment" id="magnification_max_scale_adjustment">
+    <property name="lower">1.10</property>
+    <property name="upper">2.00</property>
+    <property name="step_increment">0.05</property>
+    <property name="page_increment">0.1</property>
+    <property name="value">1.65</property>
+  </object>
+  <object class="GtkAdjustment" id="magnification_radius_adjustment">
+    <property name="lower">1.0</property>
+    <property name="upper">4.0</property>
+    <property name="step_increment">0.1</property>
+    <property name="page_increment">0.5</property>
+    <property name="value">2.5</property>
+  </object>
+  <object class="GtkAdjustment" id="magnification_smoothing_adjustment">
+    <property name="lower">0.10</property>
+    <property name="upper">1.00</property>
+    <property name="step_increment">0.05</property>
+    <property name="page_increment">0.1</property>
+    <property name="value">0.35</property>
+  </object>
   <object class="GtkBox" id="box_middle_click_options">
     <property name="can_focus">0</property>
     <property name="margin_start">12</property>
@@ -880,6 +901,199 @@
                 <child type="label_item">
                   <placeholder/>
                 </child>
+              </object>
+            </child>
+            <child>
+              <object class="GtkFrame" id="frame_magnification">
+                <property name="can_focus">0</property>
+                <property name="label" translatable="yes">macOS-style magnification</property>
+                <property name="child">
+                  <object class="GtkListBox" id="magnification_listbox">
+                    <property name="can_focus">0</property>
+                    <property name="selection_mode">none</property>
+                    <child>
+                      <object class="GtkListBoxRow" id="row_magnification_enabled">
+                        <property name="child">
+                          <object class="GtkGrid">
+                            <property name="can_focus">0</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">12</property>
+                            <property name="margin_bottom">12</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="can_focus">0</property>
+                                <property name="hexpand">1</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Enable magnification</property>
+                                <layout>
+                                  <property name="column">0</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSwitch" id="magnification_enabled_switch">
+                                <property name="can_focus">1</property>
+                                <property name="valign">center</property>
+                                <layout>
+                                  <property name="column">1</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkListBoxRow" id="row_magnification_max_scale">
+                        <property name="child">
+                          <object class="GtkGrid">
+                            <property name="can_focus">0</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">12</property>
+                            <property name="margin_bottom">12</property>
+                            <property name="column_spacing">32</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="can_focus">0</property>
+                                <property name="label" translatable="yes">Maximum scale slider</property>
+                                <layout>
+                                  <property name="column">0</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="magnification_max_scale_scale">
+                                <property name="hexpand">1</property>
+                                <property name="draw_value">1</property>
+                                <property name="adjustment">magnification_max_scale_adjustment</property>
+                                <property name="digits">2</property>
+                                <property name="value_pos">right</property>
+                                <layout>
+                                  <property name="column">1</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkListBoxRow" id="row_magnification_radius">
+                        <property name="child">
+                          <object class="GtkGrid">
+                            <property name="can_focus">0</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">12</property>
+                            <property name="margin_bottom">12</property>
+                            <property name="column_spacing">32</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="can_focus">0</property>
+                                <property name="label" translatable="yes">Effect radius slider</property>
+                                <layout>
+                                  <property name="column">0</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="magnification_radius_scale">
+                                <property name="hexpand">1</property>
+                                <property name="draw_value">1</property>
+                                <property name="adjustment">magnification_radius_adjustment</property>
+                                <property name="digits">1</property>
+                                <property name="value_pos">right</property>
+                                <layout>
+                                  <property name="column">1</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkListBoxRow" id="row_magnification_displacement">
+                        <property name="child">
+                          <object class="GtkGrid">
+                            <property name="can_focus">0</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">12</property>
+                            <property name="margin_bottom">12</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="can_focus">0</property>
+                                <property name="hexpand">1</property>
+                                <property name="halign">start</property>
+                                <property name="label" translatable="yes">Move neighbouring icons switch</property>
+                                <layout>
+                                  <property name="column">0</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkSwitch" id="magnification_displacement_switch">
+                                <property name="can_focus">1</property>
+                                <property name="valign">center</property>
+                                <layout>
+                                  <property name="column">1</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkListBoxRow" id="row_magnification_smoothing">
+                        <property name="child">
+                          <object class="GtkGrid">
+                            <property name="can_focus">0</property>
+                            <property name="margin_start">12</property>
+                            <property name="margin_end">12</property>
+                            <property name="margin_top">12</property>
+                            <property name="margin_bottom">12</property>
+                            <property name="column_spacing">32</property>
+                            <child>
+                              <object class="GtkLabel">
+                                <property name="can_focus">0</property>
+                                <property name="label" translatable="yes">Smoothness slider</property>
+                                <layout>
+                                  <property name="column">0</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                            <child>
+                              <object class="GtkScale" id="magnification_smoothing_scale">
+                                <property name="hexpand">1</property>
+                                <property name="draw_value">1</property>
+                                <property name="adjustment">magnification_smoothing_adjustment</property>
+                                <property name="digits">2</property>
+                                <property name="value_pos">right</property>
+                                <layout>
+                                  <property name="column">1</property>
+                                  <property name="row">0</property>
+                                </layout>
+                              </object>
+                            </child>
+                          </object>
+                        </property>
+                      </object>
+                    </child>
+                  </object>
+                </property>
               </object>
             </child>
           </object>
