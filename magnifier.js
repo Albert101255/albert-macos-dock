@@ -2,6 +2,7 @@
 
 import GObject from 'gi://GObject';
 import Clutter from 'gi://Clutter';
+import GLib from 'gi://GLib';
 import St from 'gi://St';
 import * as Utils from './utils.js';
 import * as Docking from './docking.js';
@@ -25,6 +26,9 @@ export const DockMagnifier = GObject.registerClass({
         this._settings = Docking.DockManager.settings;
         this._signalsHandler = new Utils.GlobalSignalsHandler(this);
         this._state = State.IDLE;
+        this._generation = 0;
+        this._frameSourceId = 0;
+        this._dockRect = null;
         this._records = new Map();
 
         console.log('[Albert macOS Dock] Magnifier constructed');
@@ -86,6 +90,8 @@ export const DockMagnifier = GObject.registerClass({
             return;
 
         const children = this._dockDash._box.get_children();
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
         for (const item of children) {
             if (!item.mapped || !item.visible)
                 continue;
@@ -97,6 +103,11 @@ export const DockMagnifier = GObject.registerClass({
             const [w, h] = item.get_transformed_size();
             if (w <= 0 || h <= 0)
                 continue;
+
+            minX = Math.min(minX, x);
+            minY = Math.min(minY, y);
+            maxX = Math.max(maxX, x + w);
+            maxY = Math.max(maxY, y + h);
 
             const record = {
                 item,
@@ -143,15 +154,34 @@ export const DockMagnifier = GObject.registerClass({
 
             this._records.set(item, record);
         }
+
+        if (this._records.size > 0) {
+            const tolerance = 2;
+            this._dockRect = {
+                x1: minX - tolerance,
+                y1: minY - tolerance,
+                x2: maxX + tolerance,
+                y2: maxY + tolerance,
+            };
+        } else {
+            this._dockRect = null;
+        }
     }
 
     _onEnterEvent(actor, event) {
         if (this._state === State.DESTROYED)
             return Clutter.EVENT_PROPAGATE;
 
+        if (!this._settings.magnificationEnabled)
+            return Clutter.EVENT_PROPAGATE;
+
         console.log('[Albert macOS Dock] Pointer entered dock');
         if (this._state === State.IDLE) {
             this._captureBaselineGeometry();
+            if (this._records.size > 0) {
+                this._state = State.ACTIVE;
+                this._startFrameLoop();
+            }
         }
 
         return Clutter.EVENT_PROPAGATE;
@@ -173,7 +203,159 @@ export const DockMagnifier = GObject.registerClass({
         return Clutter.EVENT_PROPAGATE;
     }
 
+    _startFrameLoop() {
+        if (this._frameSourceId > 0)
+            return;
+
+        const currentGen = ++this._generation;
+        this._frameSourceId = GLib.timeout_add(GLib.PRIORITY_DEFAULT, 16, () => {
+            if (this._state !== State.ACTIVE || this._generation !== currentGen) {
+                this._frameSourceId = 0;
+                return GLib.SOURCE_REMOVE;
+            }
+
+            this._onFrame();
+            return GLib.SOURCE_CONTINUE;
+        });
+    }
+
+    _stopFrameLoop() {
+        if (this._frameSourceId > 0) {
+            GLib.source_remove(this._frameSourceId);
+            this._frameSourceId = 0;
+        }
+    }
+
+    _onFrame() {
+        if (this._state !== State.ACTIVE)
+            return;
+
+        if (!this._settings.magnificationEnabled) {
+            this._resetToBaseline('settings-disabled');
+            return;
+        }
+
+        const [px, py] = global.get_pointer();
+
+        // Check if pointer is inside active dock rectangle
+        if (this._dockRect) {
+            if (px < this._dockRect.x1 || px > this._dockRect.x2 ||
+                py < this._dockRect.y1 || py > this._dockRect.y2) {
+                this._resetToBaseline('pointer-outside');
+                return;
+            }
+        }
+
+        const isHorizontal = this._dockDash._isHorizontal;
+        const maxScale = this._settings.magnificationMaxScale ?? 1.65;
+        const radiusFactor = this._settings.magnificationRadius ?? 2.5;
+        const allowDisplacement = this._settings.magnificationDisplacement ?? true;
+        const rawSmoothing = this._settings.magnificationSmoothing ?? 0.35;
+        const smoothing = Math.min(Math.max(rawSmoothing, 0.10), 1.00);
+
+        const pointerPrimary = isHorizontal ? px : py;
+        const recordsList = Array.from(this._records.values());
+        if (recordsList.length === 0)
+            return;
+
+        // 1. Compute cosine scale wave for each icon
+        for (const record of recordsList) {
+            const centerPrimary = isHorizontal ? record.baseItemStageRect.centerX : record.baseItemStageRect.centerY;
+            const baseIconSize = isHorizontal ? record.baseItemStageRect.width : record.baseItemStageRect.height;
+            const radius = radiusFactor * baseIconSize;
+            const distance = Math.abs(pointerPrimary - centerPrimary);
+
+            if (distance < radius) {
+                const normalized = Math.min(Math.max(distance / radius, 0), 1);
+                const influence = 0.5 * (1 + Math.cos(Math.PI * normalized));
+                record.targetScale = 1 + influence * (maxScale - 1);
+            } else {
+                record.targetScale = 1.0;
+            }
+            record.targetScale = Math.min(Math.max(record.targetScale, 1.0), maxScale);
+        }
+
+        // 2. Compute non-overlapping displacement
+        if (allowDisplacement) {
+            const n = recordsList.length;
+            const extraSize = new Float64Array(n);
+            const cum = new Float64Array(n);
+
+            for (let i = 0; i < n; i++) {
+                const size = isHorizontal ? recordsList[i].baseItemStageRect.width : recordsList[i].baseItemStageRect.height;
+                extraSize[i] = (recordsList[i].targetScale - 1.0) * size;
+            }
+
+            cum[0] = 0.5 * extraSize[0];
+            for (let i = 1; i < n; i++) {
+                cum[i] = cum[i - 1] + 0.5 * extraSize[i - 1] + 0.5 * extraSize[i];
+            }
+
+            // Find anchor position at exact pointer location
+            let anchor = 0.0;
+            const centers = recordsList.map(r => isHorizontal ? r.baseItemStageRect.centerX : r.baseItemStageRect.centerY);
+            if (pointerPrimary <= centers[0]) {
+                anchor = cum[0];
+            } else if (pointerPrimary >= centers[n - 1]) {
+                anchor = cum[n - 1];
+            } else {
+                for (let k = 0; k < n - 1; k++) {
+                    if (pointerPrimary >= centers[k] && pointerPrimary <= centers[k + 1]) {
+                        const span = centers[k + 1] - centers[k];
+                        const t = span > 0 ? (pointerPrimary - centers[k]) / span : 0;
+                        anchor = cum[k] + t * (cum[k + 1] - cum[k]);
+                        break;
+                    }
+                }
+            }
+
+            for (let i = 0; i < n; i++) {
+                recordsList[i].targetDisplacement = cum[i] - anchor;
+            }
+        } else {
+            for (const record of recordsList) {
+                record.targetDisplacement = 0.0;
+            }
+        }
+
+        // 3. Apply frame-based smoothing and update transforms
+        const [pivotX, pivotY] = this._getPivotForOrientation();
+
+        for (const record of recordsList) {
+            // Scale smoothing
+            record.currentScale += (record.targetScale - record.currentScale) * smoothing;
+            if (Math.abs(record.targetScale - record.currentScale) < 0.001) {
+                record.currentScale = record.targetScale;
+            }
+
+            // Displacement smoothing
+            record.currentDisplacement += (record.targetDisplacement - record.currentDisplacement) * smoothing;
+            if (Math.abs(record.targetDisplacement - record.currentDisplacement) < 0.01) {
+                record.currentDisplacement = record.targetDisplacement;
+            }
+
+            // Apply to visual actor (scaling)
+            const visual = record.visualActor;
+            visual.set_pivot_point(pivotX, pivotY);
+            visual.set_scale(record.currentScale, record.currentScale);
+
+            // Apply to layout actor (displacement)
+            const layout = record.layoutActor;
+            if (isHorizontal) {
+                layout.translation_x = record.originalLayoutTransform.translationX + record.currentDisplacement;
+                layout.translation_y = record.originalLayoutTransform.translationY;
+            } else {
+                layout.translation_x = record.originalLayoutTransform.translationX;
+                layout.translation_y = record.originalLayoutTransform.translationY + record.currentDisplacement;
+            }
+        }
+    }
+
     _resetToBaseline(reason, finalState = State.IDLE) {
+        this._generation++;
+        this._stopFrameLoop();
+        this._state = State.SUSPENDED;
+
         for (const record of this._records.values()) {
             const { layoutActor, visualActor, originalLayoutTransform, originalVisualTransform } = record;
 
@@ -194,8 +376,30 @@ export const DockMagnifier = GObject.registerClass({
             }
         }
 
+        this._verifyBaseline();
         this._records.clear();
+        this._dockRect = null;
         this._state = finalState;
+    }
+
+    _verifyBaseline() {
+        for (const record of this._records.values()) {
+            const { layoutActor, visualActor, originalLayoutTransform, originalVisualTransform } = record;
+            if (layoutActor && (
+                layoutActor.translation_x !== originalLayoutTransform.translationX ||
+                layoutActor.translation_y !== originalLayoutTransform.translationY
+            )) {
+                layoutActor.translation_x = originalLayoutTransform.translationX;
+                layoutActor.translation_y = originalLayoutTransform.translationY;
+            }
+            if (visualActor && (
+                visualActor.scale_x !== originalVisualTransform.scaleX ||
+                visualActor.scale_y !== originalVisualTransform.scaleY
+            )) {
+                visualActor.set_scale(originalVisualTransform.scaleX, originalVisualTransform.scaleY);
+            }
+        }
+        return true;
     }
 
     destroy() {

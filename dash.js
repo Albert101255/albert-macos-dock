@@ -141,7 +141,7 @@ export const DockDash = GObject.registerClass({
         // Initialize icon variables and size
         super._init({
             name: 'dash',
-            offscreen_redirect: Clutter.OffscreenRedirect.ALWAYS,
+            offscreen_redirect: Clutter.OffscreenRedirect.AUTOMATIC_FOR_OPACITY,
             layout_manager: new Clutter.BinLayout(),
         });
 

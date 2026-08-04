@@ -164,8 +164,25 @@ const DashSlideContainer = GObject.registerClass({
 
         this.child.allocate(childBox);
 
-        this.child.set_clip(-childBox.x1, -childBox.y1,
-            -childBox.x1 + availWidth, -childBox.y1 + availHeight);
+        const overflowMargin = 150;
+        let clipX1 = -childBox.x1;
+        let clipY1 = -childBox.y1;
+        let clipWidth = availWidth;
+        let clipHeight = availHeight;
+
+        if (this.side === St.Side.BOTTOM) {
+            clipY1 -= overflowMargin;
+            clipHeight += overflowMargin;
+        } else if (this.side === St.Side.TOP) {
+            clipHeight += overflowMargin;
+        } else if (this.side === St.Side.RIGHT) {
+            clipX1 -= overflowMargin;
+            clipWidth += overflowMargin;
+        } else if (this.side === St.Side.LEFT) {
+            clipWidth += overflowMargin;
+        }
+
+        this.child.set_clip(clipX1, clipY1, clipWidth, clipHeight);
     }
 
     /**
