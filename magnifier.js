@@ -25,8 +25,7 @@ export const DockMagnifier = GObject.registerClass({
         this._settings = Docking.DockManager.settings;
         this._signalsHandler = new Utils.GlobalSignalsHandler(this);
         this._state = State.IDLE;
-        this._targetActor = null;
-        this._originalTransform = null;
+        this._records = new Map();
 
         console.log('[Albert macOS Dock] Magnifier constructed');
 
@@ -81,33 +80,78 @@ export const DockMagnifier = GObject.registerClass({
         }
     }
 
+    _captureBaselineGeometry() {
+        this._records.clear();
+        if (!this._dockDash._box)
+            return;
+
+        const children = this._dockDash._box.get_children();
+        for (const item of children) {
+            if (!item.mapped || !item.visible)
+                continue;
+            const visualActor = this._getVisualActor(item);
+            if (!visualActor)
+                continue;
+
+            const [x, y] = item.get_transformed_position();
+            const [w, h] = item.get_transformed_size();
+            if (w <= 0 || h <= 0)
+                continue;
+
+            const record = {
+                item,
+                layoutActor: item,
+                visualActor,
+
+                baseItemStageRect: {
+                    x1: x,
+                    y1: y,
+                    x2: x + w,
+                    y2: y + h,
+                    width: w,
+                    height: h,
+                    centerX: x + w / 2,
+                    centerY: y + h / 2,
+                },
+
+                originalLayoutTransform: {
+                    scaleX: item.scale_x,
+                    scaleY: item.scale_y,
+                    translationX: item.translation_x,
+                    translationY: item.translation_y,
+                    pivotX: item.pivot_point_x,
+                    pivotY: item.pivot_point_y,
+                    opacity: item.opacity,
+                },
+
+                originalVisualTransform: {
+                    scaleX: visualActor.scale_x,
+                    scaleY: visualActor.scale_y,
+                    translationX: visualActor.translation_x,
+                    translationY: visualActor.translation_y,
+                    pivotX: visualActor.pivot_point_x,
+                    pivotY: visualActor.pivot_point_y,
+                    opacity: visualActor.opacity,
+                },
+
+                currentScale: 1.0,
+                targetScale: 1.0,
+
+                currentDisplacement: 0.0,
+                targetDisplacement: 0.0,
+            };
+
+            this._records.set(item, record);
+        }
+    }
+
     _onEnterEvent(actor, event) {
         if (this._state === State.DESTROYED)
             return Clutter.EVENT_PROPAGATE;
 
         console.log('[Albert macOS Dock] Pointer entered dock');
-
-        if (!this._targetActor && this._dockDash._box) {
-            const children = this._dockDash._box.get_children();
-            for (const item of children) {
-                const visual = this._getVisualActor(item);
-                if (visual) {
-                    this._targetActor = visual;
-                    this._originalTransform = {
-                        scale_x: visual.scale_x,
-                        scale_y: visual.scale_y,
-                        translation_x: visual.translation_x,
-                        translation_y: visual.translation_y,
-                        pivot_x: visual.pivot_point_x,
-                        pivot_y: visual.pivot_point_y,
-                        opacity: visual.opacity,
-                    };
-                    const [px, py] = this._getPivotForOrientation();
-                    visual.set_pivot_point(px, py);
-                    visual.set_scale(1.25, 1.25);
-                    break;
-                }
-            }
+        if (this._state === State.IDLE) {
+            this._captureBaselineGeometry();
         }
 
         return Clutter.EVENT_PROPAGATE;
@@ -118,7 +162,7 @@ export const DockMagnifier = GObject.registerClass({
             return Clutter.EVENT_PROPAGATE;
 
         console.log('[Albert macOS Dock] Pointer left dock');
-        this._resetSingleIcon();
+        this._resetToBaseline('pointer-leave');
         return Clutter.EVENT_PROPAGATE;
     }
 
@@ -129,30 +173,36 @@ export const DockMagnifier = GObject.registerClass({
         return Clutter.EVENT_PROPAGATE;
     }
 
-    _resetSingleIcon() {
-        if (this._targetActor && this._originalTransform) {
-            this._targetActor.set_pivot_point(
-                this._originalTransform.pivot_x,
-                this._originalTransform.pivot_y
-            );
-            this._targetActor.set_scale(
-                this._originalTransform.scale_x,
-                this._originalTransform.scale_y
-            );
-            this._targetActor.translation_x = this._originalTransform.translation_x;
-            this._targetActor.translation_y = this._originalTransform.translation_y;
-            this._targetActor.opacity = this._originalTransform.opacity;
-            this._targetActor = null;
-            this._originalTransform = null;
+    _resetToBaseline(reason, finalState = State.IDLE) {
+        for (const record of this._records.values()) {
+            const { layoutActor, visualActor, originalLayoutTransform, originalVisualTransform } = record;
+
+            if (layoutActor) {
+                layoutActor.set_pivot_point(originalLayoutTransform.pivotX, originalLayoutTransform.pivotY);
+                layoutActor.set_scale(originalLayoutTransform.scaleX, originalLayoutTransform.scaleY);
+                layoutActor.translation_x = originalLayoutTransform.translationX;
+                layoutActor.translation_y = originalLayoutTransform.translationY;
+                layoutActor.opacity = originalLayoutTransform.opacity;
+            }
+
+            if (visualActor) {
+                visualActor.set_pivot_point(originalVisualTransform.pivotX, originalVisualTransform.pivotY);
+                visualActor.set_scale(originalVisualTransform.scaleX, originalVisualTransform.scaleY);
+                visualActor.translation_x = originalVisualTransform.translationX;
+                visualActor.translation_y = originalVisualTransform.translationY;
+                visualActor.opacity = originalVisualTransform.opacity;
+            }
         }
+
+        this._records.clear();
+        this._state = finalState;
     }
 
     destroy() {
         if (this._state === State.DESTROYED)
             return;
 
-        this._resetSingleIcon();
-        this._state = State.DESTROYED;
+        this._resetToBaseline('destroy', State.DESTROYED);
         this._signalsHandler?.destroy();
         this._signalsHandler = null;
         this._dockDash = null;
