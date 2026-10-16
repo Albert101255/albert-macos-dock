@@ -1,10 +1,14 @@
 .~
 *~
 gschemas.compiled
+schemas/gschemas.compiled
 dash-to-dock@micxgx.gmail.com.zip
+albert-macos-dock@local*.zip
+*.zip
 *.mo
 po/dashtodock.pot
 stylesheet.css
 stylesheet.css.map
 Settings.ui.h
-_build
+_build/
+node_modules/
