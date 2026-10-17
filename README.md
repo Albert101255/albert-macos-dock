@@ -1,3 +1,5 @@
+> **Live Interactive Magnification Demo:** [https://albert101255.github.io/albert-macos-dock/](https://albert101255.github.io/albert-macos-dock/)
+
 # Albert macOS Dock
 
 A customized GNOME Shell dock experiment focused on macOS-style icon magnification, smooth pointer-following animation and dock interaction behavior.
