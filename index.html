@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Albert macOS Dock — Smooth Magnification & Displacement Demo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card-bg: rgba(22, 27, 34, 0.75);
+      --border: rgba(255, 255, 255, 0.1);
+      --accent: #58a6ff;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --dock-glass: rgba(255, 255, 255, 0.12);
+      --dock-border: rgba(255, 255, 255, 0.25);
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: radial-gradient(ellipse at top, #1b2636, #0b0f14 70%);
+      color: var(--text);
+      font-family: 'Inter', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow-x: hidden;
+    }
+    header {
+      padding: 24px 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .logo h1 {
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    .badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      padding: 3px 8px;
+      border-radius: 12px;
+      background: rgba(88, 166, 255, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(88, 166, 255, 0.3);
+    }
+    .nav-btn {
+      color: var(--accent);
+      text-decoration: none;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.85rem;
+      padding: 6px 14px;
+      border-radius: 6px;
+      border: 1px solid rgba(88, 166, 255, 0.3);
+      transition: all 0.2s;
+    }
+    .nav-btn:hover {
+      background: rgba(88, 166, 255, 0.15);
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 32px 24px 180px;
+      flex: 1;
+      width: 100%;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 32px;
+    }
+    .hero h2 {
+      font-size: 2.2rem;
+      font-weight: 700;
+      margin-bottom: 10px;
+      background: linear-gradient(135deg, #fff 40%, var(--accent) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero p {
+      color: var(--text-muted);
+      font-size: 1.05rem;
+      max-width: 650px;
+      margin: 0 auto;
+    }
+    .controls-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 20px 24px;
+      backdrop-filter: blur(12px);
+      margin-bottom: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .control-label {
+      font-size: 0.8rem;
+      font-family: 'JetBrains Mono', monospace;
+      color: var(--text-muted);
+      display: flex;
+      justify-content: space-between;
+    }
+    input[type="range"] {
+      width: 100%;
+      cursor: pointer;
+      accent-color: var(--accent);
+    }
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .feature-item {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 16px 20px;
+    }
+    .feature-item h3 {
+      font-size: 0.95rem;
+      margin-bottom: 6px;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .feature-item p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* Fixed Desktop Wallpaper & Interactive Dock */
+    .dock-stage {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .dock-tooltip {
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 4px 10px;
+      border-radius: 6px;
+      margin-bottom: 8px;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.15s;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      white-space: nowrap;
+    }
+    .dock {
+      background: var(--dock-glass);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--dock-border);
+      border-radius: 20px;
+      padding: 8px 14px;
+      display: flex;
+      align-items: flex-end;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      position: relative;
+    }
+    .dock-item {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-end;
+      cursor: pointer;
+      transform-origin: bottom center;
+      will-change: width, height, transform;
+    }
+    .dock-icon {
+      width: 100%;
+      height: 100%;
+      border-radius: 22%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+      font-size: 1.6rem;
+      user-select: none;
+      transition: filter 0.2s;
+    }
+    .dock-icon:hover {
+      filter: brightness(1.1);
+    }
+    .dock-indicator {
+      width: 4px;
+      height: 4px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.85);
+      margin-top: 4px;
+    }
+    .dock-separator {
+      width: 1px;
+      height: 38px;
+      background: rgba(255, 255, 255, 0.2);
+      margin: 0 6px 8px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <h1>Albert macOS Dock</h1>
+      <span class="badge">GNOME Shell Extension</span>
+    </div>
+    <a href="https://github.com/Albert101255/albert-macos-dock" class="nav-btn" target="_blank">&rarr; GitHub Repository</a>
+  </header>
+
+  <div class="container">
+    <div class="hero">
+      <h2>Interactive Magnification Simulator</h2>
+      <p>Hover your cursor across the dock at the bottom of your screen to experience smooth cosine-interpolated magnification and dynamic neighbor displacement ported directly from the extension's <code>dash.js</code> mathematics.</p>
+    </div>
+
+    <div class="controls-card">
+      <div class="control-group">
+        <div class="control-label">
+          <span>Max Magnification Scale</span>
+          <span id="lbl-scale">1.8x</span>
+        </div>
+        <input type="range" id="slider-scale" min="1.0" max="2.5" step="0.05" value="1.8">
+      </div>
+      <div class="control-group">
+        <div class="control-label">
+          <span>Influence Radius Factor</span>
+          <span id="lbl-radius">3.5&times;</span>
+        </div>
+        <input type="range" id="slider-radius" min="1.5" max="5.0" step="0.1" value="3.5">
+      </div>
+      <div class="control-group">
+        <div class="control-label">
+          <span>Base Icon Size</span>
+          <span id="lbl-size">52px</span>
+        </div>
+        <input type="range" id="slider-size" min="36" max="72" step="2" value="52">
+      </div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-item">
+        <h3>&bull; Cosine Bell Curve Interpolation</h3>
+        <p>Uses <code>Math.cos(offset / radius * Math.PI / 2)</code> within the influence boundary to eliminate jerky step transitions and produce an authentic macOS magnification curve.</p>
+      </div>
+      <div class="feature-item">
+        <h3>&bull; Neighbor Displacement Math</h3>
+        <p>Dynamically computes expansion offsets so neighbor icons smoothly glide outward along the baseline without overlapping or distorting layout alignment.</p>
+      </div>
+      <div class="feature-item">
+        <h3>&bull; GSettings Customization</h3>
+        <p>Fully configurable via GNOME Extension Preferences: adjustable size limits, animation damping, auto-hide triggers, and multi-monitor placement.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="dock-stage">
+    <div class="dock-tooltip" id="dock-tooltip">Finder</div>
+    <div class="dock" id="dock">
+      <!-- Items generated by JS -->
+    </div>
+  </div>
+
+  <script>
+    const ICONS = [
+      { name: 'Finder', icon: '📁', bg: 'linear-gradient(135deg, #1d6fa5, #004481)', running: true },
+      { name: 'Launchpad', icon: '🚀', bg: 'linear-gradient(135deg, #3d4451, #1f232b)', running: false },
+      { name: 'Safari', icon: '🧭', bg: 'linear-gradient(135deg, #00a0e9, #005696)', running: true },
+      { name: 'Messages', icon: '💬', bg: 'linear-gradient(135deg, #34c759, #248a3d)', running: true },
+      { name: 'Mail', icon: '✉️', bg: 'linear-gradient(135deg, #0a84ff, #0040dd)', running: false },
+      { name: 'Terminal', icon: '💻', bg: 'linear-gradient(135deg, #2b2b2b, #111111)', running: true },
+      { name: 'VS Code', icon: '📝', bg: 'linear-gradient(135deg, #007acc, #004f84)', running: true },
+      { name: 'Ghidra', icon: '🐉', bg: 'linear-gradient(135deg, #e056fd, #686de0)', running: true },
+      { separator: true },
+      { name: 'System Settings', icon: '⚙️', bg: 'linear-gradient(135deg, #8e8e93, #636366)', running: false },
+      { name: 'Trash', icon: '🗑️', bg: 'linear-gradient(135deg, #576574, #222f3e)', running: false }
+    ];
+
+    const dock = document.getElementById('dock');
+    const tooltip = document.getElementById('dock-tooltip');
+    const sliderScale = document.getElementById('slider-scale');
+    const sliderRadius = document.getElementById('slider-radius');
+    const sliderSize = document.getElementById('slider-size');
+
+    let baseSize = 52;
+    let maxScale = 1.8;
+    let radiusFactor = 3.5;
+    let mouseX = -9999;
+    let isHovering = false;
+
+    function renderDock() {
+      dock.innerHTML = '';
+      ICONS.forEach((item, idx) => {
+        if (item.separator) {
+          const sep = document.createElement('div');
+          sep.className = 'dock-separator';
+          dock.appendChild(sep);
+          return;
+        }
+
+        const el = document.createElement('div');
+        el.className = 'dock-item';
+        el.id = `dock-item-${idx}`;
+        el.dataset.name = item.name;
+        el.style.width = `${baseSize}px`;
+        el.style.height = `${baseSize + 6}px`;
+
+        const icon = document.createElement('div');
+        icon.className = 'dock-icon';
+        icon.style.background = item.bg;
+        icon.innerHTML = item.icon;
+        el.appendChild(icon);
+
+        if (item.running) {
+          const ind = document.createElement('div');
+          ind.className = 'dock-indicator';
+          el.appendChild(ind);
+        }
+
+        el.addEventListener('mouseenter', () => {
+          tooltip.textContent = item.name;
+          tooltip.style.opacity = '1';
+        });
+
+        dock.appendChild(el);
+      });
+    }
+
+    function updateMagnification() {
+      const items = Array.from(dock.querySelectorAll('.dock-item'));
+      if (items.length === 0) return;
+
+      const influenceRadius = baseSize * radiusFactor;
+
+      items.forEach((item) => {
+        const rect = item.getBoundingClientRect();
+        const itemCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(mouseX - itemCenter);
+
+        let scale = 1.0;
+        if (isHovering && dist < influenceRadius) {
+          // Cosine bell curve interpolation from dash.js
+          const normalized = dist / influenceRadius;
+          const factor = Math.cos(normalized * Math.PI / 2);
+          scale = 1.0 + (maxScale - 1.0) * factor;
+        }
+
+        const targetW = baseSize * scale;
+        const targetH = (baseSize + 6) * scale;
+        item.style.width = `${targetW}px`;
+        item.style.height = `${targetH}px`;
+      });
+    }
+
+    dock.addEventListener('mousemove', (e) => {
+      isHovering = true;
+      mouseX = e.clientX;
+      updateMagnification();
+    });
+
+    dock.addEventListener('mouseleave', () => {
+      isHovering = false;
+      mouseX = -9999;
+      tooltip.style.opacity = '0';
+      const items = Array.from(dock.querySelectorAll('.dock-item'));
+      items.forEach(item => {
+        item.style.width = `${baseSize}px`;
+        item.style.height = `${baseSize + 6}px`;
+      });
+    });
+
+    sliderScale.addEventListener('input', (e) => {
+      maxScale = parseFloat(e.target.value);
+      document.getElementById('lbl-scale').textContent = `${maxScale.toFixed(2)}x`;
+      updateMagnification();
+    });
+
+    sliderRadius.addEventListener('input', (e) => {
+      radiusFactor = parseFloat(e.target.value);
+      document.getElementById('lbl-radius').textContent = `${radiusFactor.toFixed(1)}×`;
+      updateMagnification();
+    });
+
+    sliderSize.addEventListener('input', (e) => {
+      baseSize = parseInt(e.target.value, 10);
+      document.getElementById('lbl-size').textContent = `${baseSize}px`;
+      renderDock();
+      updateMagnification();
+    });
+
+    renderDock();
+  </script>
+</body>
+</html>
